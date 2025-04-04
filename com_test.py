@@ -62,6 +62,8 @@ def master(count=5):  # count = 5 will only transmit 5 packets
         # use struct.pack to structure your data
         # into a usable payload
         buffer = struct.pack("<f", payload[0])
+        message = "Hi!"
+        buffer = message.encode("utf-8")
         # "<f" means a single little endian (4 byte) float value.
         start_timer = time.monotonic_ns()  # start timer
         result = nrf.send(buffer)
@@ -92,11 +94,13 @@ def slave(timeout=6):
             buffer = nrf.read()  # also clears nrf.irq_dr status flag
             # expecting a little endian float, thus the format string "<f"
             # buffer[:4] truncates padded 0s if dynamic payloads are disabled
-            payload[0] = struct.unpack("<f", buffer[:4])[0]
+            # payload[0] = struct.unpack("<f", buffer[:4])[0]
             # print details about the received packet
+            message = buffer.decode("utf-8")
+
             print(
                 "Received {} bytes on pipe {}: {}".format(
-                    payload_size, pipe_number, payload[0]
+                    payload_size, pipe_number, message#payload[0]
                 )
             )
             start = time.monotonic()
