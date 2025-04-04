@@ -90,4 +90,5 @@ def receive():
     # Reassemble message
     full_bytes = b''.join(message_parts[i] for i in sorted(message_parts))
     full_msg = full_bytes.decode('utf-8')
+    print(f"Construced message of {expected_chunks} chunks:")
     print(full_msg)
