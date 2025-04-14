@@ -8,6 +8,9 @@ from circuitpython_nrf24l01.rf24 import RF24
 import threading
 import time
 
+MAX_PAYLOAD = 32
+HEADER_SIZE = 4
+CHUNK_SIZE = MAX_PAYLOAD - HEADER_SIZE
 
 def create_tun(radio_number):
     adress = radio_number+1
@@ -67,11 +70,34 @@ def setup_nRF24L01(radio_number):
     return nrf_send, nrf_recv
 
 def receive_loop(nrf_recv, tun):
+    message_parts = {}
+    expected_chunks = None
+    packet_id = None
     while True:
         if nrf_recv.any():
             packet = nrf_recv.read()
-            print(f"\nReceived on nrf, writing to TUN")
-            os.write(tun, packet)
+            pid, total, seq, _ = packet[:4]
+            data = packet[4:]
+
+            # First packet: set expectations
+            if packet_id is None:
+                packet_id = pid
+                expected_chunks = total
+
+            # Ignore other packet_ids
+            if pid != packet_id:
+                continue
+
+            message_parts[seq] = data
+            if len(message_parts) == expected_chunks:
+                full_bytes = b''.join(message_parts[i] for i in sorted(message_parts))
+                # full_msg = full_bytes.decode('utf-8')
+                print(f"Construced message of {expected_chunks} chunks:")
+                os.write(tun, full_bytes)
+                message_parts = {}
+                expected_chunks = None
+                packet_id = None
+
 
 def main(radio_number):
     nrf_send, nrf_recv = setup_nRF24L01(radio_number)
@@ -80,17 +106,36 @@ def main(radio_number):
     recv_thread = threading.Thread(target=receive_loop, args=(nrf_recv, tun,), daemon=True)
     recv_thread.start()
 
+    packet_id = 0
     try:
         while True:
-            packet = os.read(tun, 2048)
-            if len(packet) > 32:
-                print("⚠️ Packet too large for nRF24L01, dropping")
-                continue
+            data_bytes = os.read(tun, 2048)
+            total_chunks = (len(data_bytes) + CHUNK_SIZE - 1) // CHUNK_SIZE
+            packet_id+=1   # Just an example, increment for each message
+
             print(f"\nReceived on TUN, writing to nrf")
+            for seq in range(total_chunks):
+                start = seq * CHUNK_SIZE
+                end = start + CHUNK_SIZE
+                chunk = data_bytes[start:end]
+                header = bytes([packet_id, total_chunks, seq, 0])  # last byte = flags or reserved
+                packet = header + chunk
+                nrf_send.send(packet)
             nrf_send.send(packet)
     except KeyboardInterrupt:
         print("Exiting tunnel...")
         os.close(tun)
+    # try:
+    #     while True:
+    #         packet = os.read(tun, 2048)
+    #         if len(packet) > 32:
+    #             print("⚠️ Packet too large for nRF24L01, dropping")
+    #             continue
+    #         print(f"\nReceived on TUN, writing to nrf")
+    #         nrf_send.send(packet)
+    # except KeyboardInterrupt:
+    #     print("Exiting tunnel...")
+    #     os.close(tun)
 
 if __name__ == "__main__":
     import sys
