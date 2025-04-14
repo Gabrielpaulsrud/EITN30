@@ -77,6 +77,7 @@ def receive_loop(nrf_recv, tun):
         if nrf_recv.any():
             packet = nrf_recv.read()
             pid, total, seq, _ = packet[:4]
+            print(f"Received message {pid}, {total}, {seq}")
             data = packet[4:]
 
             # First packet: set expectations
@@ -121,7 +122,6 @@ def main(radio_number):
                 header = bytes([packet_id, total_chunks, seq, 0])  # last byte = flags or reserved
                 packet = header + chunk
                 nrf_send.send(packet)
-            nrf_send.send(packet)
     except KeyboardInterrupt:
         print("Exiting tunnel...")
         os.close(tun)
