@@ -1,6 +1,7 @@
 import os
 import fcntl
 import struct
+import socket
 
 TUNSETIFF = 0x400454ca
 IFF_TUN   = 0x0001
@@ -13,19 +14,37 @@ tun = os.open('/dev/net/tun', os.O_RDWR)
 ifr = struct.pack('16sH', b'tun0', IFF_TUN | IFF_NO_PI)
 fcntl.ioctl(tun, TUNSETIFF, ifr)
 
-# 3. Assign IP and bring it up (these are terminal commands!)
+# 3. Assign IP and bring it up
 os.system("ip addr add 11.11.11.2/24 dev tun0")
 os.system("ip link set dev tun0 up")
 
 print("TUN interface created and ready (tun0 @ 11.11.11.2)")
+print("Waiting for packets...")
 
-# 4. Loop to read + echo packets
+def is_icmp_echo_request(packet):
+    if len(packet) < 20:
+        return False
+    ip_header = packet[:20]
+    iph = struct.unpack('!BBHHHBBH4s4s', ip_header)
+    protocol = iph[6]
+    if protocol != 1:  # Not ICMP
+        return False
+    # IP header length in 32-bit words
+    ihl = iph[0] & 0x0F
+    ip_header_len = ihl * 4
+    if len(packet) < ip_header_len + 1:
+        return False
+    icmp_type = packet[ip_header_len]
+    return icmp_type == 8  # ICMP Echo Request
+
 try:
     while True:
         packet = os.read(tun, 2048)
-        print(f"[📥] Received {len(packet)} bytes")
+        if is_icmp_echo_request(packet):
+            print("🚀 ICMP Echo Request (ping) received!")
+        else:
+            print(f"[📥] Received {len(packet)} bytes (non-ping)")
         os.write(tun, packet)
-        print("[📤] Echoed back")
 except KeyboardInterrupt:
-    print("\nExiting.")
+    print("\n[✋] Exiting.")
     os.close(tun)
