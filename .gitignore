@@ -1,0 +1,38 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Environment/config files
+.env
+.env.*
+*.env
+
+# OS-generated junk
+.DS_Store
+Thumbs.db
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+
+# Test output or logs
+*.log
+*.coverage
+coverage.xml
+htmlcov/
+
+# Distribution/build
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook checkpoints (if you use Jupyter)
+.ipynb_checkpoints/

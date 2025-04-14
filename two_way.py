@@ -24,6 +24,7 @@ CSN_PIN2 = 10
 CE_PIN2 =  DigitalInOut(board.D27)
 
 
+
 # initialize the nRF24L01 on the spi bus object
 nrf_tx = RF24(SPI_BUS, CSN_PIN, CE_PIN)
 nrf_rx = RF24(SPI_BUS2, CSN_PIN2, CE_PIN2)
@@ -45,13 +46,16 @@ nrf_rx.channel = 120
 tx_address = b"2Node"
 rx_address = b"1Node"
 
+#for nrf in [nrf_rx, nrf_rx]:
+#    nrf.data_rate = 1
+#    nrf.auto_ack = True
+#    #nrf.dynamic_payloads = True
+#    nrf.payload_length = 32
+#    nrf.crc = True
+#    nrf.ack = 1
+#    nrf.spi_frequency = 2000000
 
-# to use different addresses on a pair of radios, we need a variable to
-# uniquely identify which address this radio will use to transmit
-# 0 uses address[0] to transmit, 1 uses address[1] to transmit
-# radio_number = bool(
-#     int(input("Which radio is this? Enter '0' or '1'. Defaults to '0' ") or 0)
-# )
+
 
 # set TX address of RX node into the TX pipe
 nrf_tx.open_tx_pipe(tx_address)  # always uses pipe 0
@@ -73,11 +77,8 @@ def send_data(count=10):  # count = 5 will only transmit 5 packets
     nrf_tx.listen = False  # ensures the nRF24L01 is in TX mode
 
     while count:
-        time.sleep(0.1)
-        # use struct.pack to structure your data
-        # into a usable payload
         #buffer = struct.pack("<f", payload[0])
-        message = "Base_20!"
+        message = "BASE_20!"
         buffer = message.encode("utf-8")
         # "<f" means a single little endian (4 byte) float value.
         start_timer = time.monotonic_ns()  # start timer
@@ -88,9 +89,10 @@ def send_data(count=10):  # count = 5 will only transmit 5 packets
         else:
             print(
                 "Transmission successful! Time to Transmit:",
-                "{} us. Sent: {}".format((end_timer - start_timer) / 1000, message),
+                "{} us. Sent: {}".format((end_timer - start_timer) / 1000, buffer),
             )
             payload[0] += 0.01
+        #nrf_tx.flush_tx()
         time.sleep(1)
         count -= 1
 
@@ -101,31 +103,32 @@ def recieve_data(timeout=10):
     nrf_rx.listen = True  # put radio into RX mode and power up
 
     start = time.monotonic()
-    while (time.monotonic() - start) < timeout:
+    while True:
         nrf_rx.listen = True
-        if nrf_rx.available():
+        if nrf_rx.any():
             # grab information about the received payload
-            payload_size, pipe_number = (nrf_rx.any(), nrf_rx.pipe)
+            #payload_size, pipe_number = (nrf_rx.any(), nrf_rx.pipe)
             # fetch 1 payload from RX FIFO
+
             buffer = nrf_rx.read()  # also clears nrf.irq_dr status flag
-            # expecting a little endian float, thus the format string "<f"
-            # buffer[:4] truncates padded 0s if dynamic payloads are disabled
-            # payload[0] = struct.unpack("<f", buffer[:4])[0]
-            # print details about the received packet
+
             message = buffer.decode("utf-8")
 
             print(
-                "Received {} bytes on pipe {}: {}".format(
-                    payload_size, pipe_number, message#payload[0]
-                )
+                "Received {}".format(message)
+                # "Received {} bytes on pipe {}: {}".format(
+                #     payload_size, pipe_number, message#payload[0]
+                # )
             )
+            time.sleep(0.01)
             start = time.monotonic()
 
     # recommended behavior is to keep in TX mode while idle
-    nrf_rx.listen = False  # put the nRF24L01 is in TX mode
+    #nrf_rx.listen = False  # put the nRF24L01 is in TX mode
+    nrf_rx.flush_rx()
 
-threading.Thread(target = send_data).start()
-threading.Thread(target = recieve_data).start()
+threading.Thread(target = recieve_data, daemon = True).start()
+threading.Thread(target = send_data, daemon = True).start()
 
 while True:
     time.sleep(1)
