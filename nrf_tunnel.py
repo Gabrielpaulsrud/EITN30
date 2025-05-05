@@ -7,13 +7,13 @@ import spidev
 from circuitpython_nrf24l01.rf24 import RF24
 import threading
 import time
+import subprocess
 
 MAX_PAYLOAD = 32
 HEADER_SIZE = 4
 CHUNK_SIZE = MAX_PAYLOAD - HEADER_SIZE
 
-def create_tun(radio_number):
-    adress = radio_number+1
+def create_tun(base_station: bool):
     TUNSETIFF = 0x400454ca
     IFF_TUN   = 0x0001
     IFF_NO_PI = 0x1000
@@ -21,21 +21,49 @@ def create_tun(radio_number):
     # 1. Open the tun device file
     tun = os.open('/dev/net/tun', os.O_RDWR)
 
-
     # 2. Create myG tun interface
     ifr = struct.pack('16sH', b'myG', IFF_TUN | IFF_NO_PI)
-    # tun_name = f"tun{adress}"
-    # ifr = struct.pack('16sH', tun_name.encode(), IFF_TUN | IFF_NO_PI)
 
     fcntl.ioctl(tun, TUNSETIFF, ifr)
 
-    # 3. Assign IP and bring it up
-    # os.system(f"ip addr add 11.11.11.{adress}/24 dev {tun_name}")
-    # os.system(f"ip link set dev {tun_name} up")
-    os.system(f"ip addr add 11.11.11.{adress}/24 dev myG")
+    # 3. Bring the interface up
     os.system("ip link set dev myG up")
 
-    print(f"TUN interface created and ready (myG @ 11.11.11.{adress})")
+    # Todo fix this comment, also can os.system("ip link set dev myG up") be moved out of the if statement
+    # 3. If base station, assign yourself a static IP and star DHCP server
+    #    If mobile device, get IP from DHCP server
+    if base_station:
+        # Assign static IP to base station side
+        os.system(f"ip addr add 11.11.11.1/24 dev myG")
+        print(f"TUN interface created and ready (myG @ 11.11.11.1)")
+        
+        # Start dnsmasq DHCP server
+        subprocess.Popen([
+            "dnsmasq",
+            "--interface=myG",
+            "--bind-interfaces",
+            "--dhcp-range=10.0.0.10,10.0.0.100,12h"
+        ])
+        print("Started DHCP server with dnsmasq")
+    else:
+        # Run DHCP client to get dynamic IP from base station
+        subprocess.Popen(["dhclient", "myG"])
+        print("Requesting IP from DHCP server...", end="", flush=True)
+
+        # Wait until an IP is assigned
+        ip = None
+        for _ in range(30):  # wait up to ~3 seconds
+            ip = get_ip_address("myG")
+            if ip:
+                break
+            print(".", end="", flush=True)
+            time.sleep(0.1)
+
+        if ip:
+            print(f"\nTUN interface created and ready (myG @ {ip})")
+        else:
+            print("\nFailed to obtain IP address via DHCP")
+
     return tun
 
 def setup_nRF24L01(radio_number):
@@ -101,8 +129,12 @@ def receive_loop(nrf_recv, tun):
 
 
 def main(radio_number):
+    if radio_number == 0:
+        base_station = True
+    else:
+        base_station = False
     nrf_send, nrf_recv = setup_nRF24L01(radio_number)
-    tun = create_tun(radio_number)
+    tun = create_tun(base_station)
     
     recv_thread = threading.Thread(target=receive_loop, args=(nrf_recv, tun,), daemon=True)
     recv_thread.start()
