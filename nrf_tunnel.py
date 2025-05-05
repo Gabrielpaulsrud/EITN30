@@ -62,21 +62,7 @@ def create_tun(base_station: bool):
     else:
         # Run DHCP client to get dynamic IP from base station
         subprocess.Popen(["dhclient", "myG"])
-        #print("Requesting IP from DHCP server...", end="", flush=True)
         threading.Thread(target=wait_for_dhcp, daemon=True).start()
-        # Wait until an IP is assigned
-        # ip = None
-        # for _ in range(30):  # wait up to ~3 seconds
-        #     ip = get_ip_address("myG")
-        #     if ip:
-        #         break
-        #     print(".", end="", flush=True)
-        #     time.sleep(0.1)
-
-        # if ip:
-        #     print(f"\nTUN interface created and ready (myG @ {ip})")
-        # else:
-        #     print("\nFailed to obtain IP address via DHCP")
 
     return tun, dnsmasq_proc
 
@@ -173,6 +159,19 @@ def main(radio_number):
             data_bytes = os.read(tun, 2048)
             total_chunks = (len(data_bytes) + CHUNK_SIZE - 1) // CHUNK_SIZE
             packet_id+=1   # Just an example, increment for each message
+
+            ##Debugging
+            print(f"🔼 TUN packet read: {len(data_bytes)} bytes")
+
+            # Optional: show first few bytes in hex for inspection
+            print(f"   🔍 First 32 bytes: {data_bytes[:32].hex()}")
+
+            # Identify UDP packets (IP protocol = 17 at byte 9)
+            if len(data_bytes) >= 28 and data_bytes[9] == 17:
+                src_port = int.from_bytes(data_bytes[20:22], 'big')
+                dst_port = int.from_bytes(data_bytes[22:24], 'big')
+                if (src_port, dst_port) in [(68, 67), (67, 68)]:
+                    print(f"📦 DHCP packet detected! UDP {src_port} → {dst_port}")
 
             print(f"\nReceived on TUN, writing to nrf")
             for seq in range(total_chunks):
