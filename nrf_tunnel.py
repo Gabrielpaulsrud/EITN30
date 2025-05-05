@@ -62,21 +62,21 @@ def create_tun(base_station: bool):
     else:
         # Run DHCP client to get dynamic IP from base station
         subprocess.Popen(["dhclient", "myG"])
-        print("Requesting IP from DHCP server...", end="", flush=True)
-
+        #print("Requesting IP from DHCP server...", end="", flush=True)
+        threading.Thread(target=wait_for_dhcp, daemon=True).start()
         # Wait until an IP is assigned
-        ip = None
-        for _ in range(30):  # wait up to ~3 seconds
-            ip = get_ip_address("myG")
-            if ip:
-                break
-            print(".", end="", flush=True)
-            time.sleep(0.1)
+        # ip = None
+        # for _ in range(30):  # wait up to ~3 seconds
+        #     ip = get_ip_address("myG")
+        #     if ip:
+        #         break
+        #     print(".", end="", flush=True)
+        #     time.sleep(0.1)
 
-        if ip:
-            print(f"\nTUN interface created and ready (myG @ {ip})")
-        else:
-            print("\nFailed to obtain IP address via DHCP")
+        # if ip:
+        #     print(f"\nTUN interface created and ready (myG @ {ip})")
+        # else:
+        #     print("\nFailed to obtain IP address via DHCP")
 
     return tun, dnsmasq_proc
 
@@ -134,16 +134,6 @@ def receive_loop(nrf_recv, tun):
             message_parts[seq] = data
             if len(message_parts) == expected_chunks:
                 full_bytes = b''.join(message_parts[i] for i in sorted(message_parts))
-                
-                
-                # Debug info
-                if full_bytes[9] == 17:  # IP protocol 17 = UDP
-                    src_port = int.from_bytes(full_bytes[20:22], byteorder='big')
-                    dst_port = int.from_bytes(full_bytes[22:24], byteorder='big')
-
-                    if (src_port == 67 and dst_port == 68) or (src_port == 68 and dst_port == 67):
-                        print("📦 DHCP packet detected!")
-
 
                 print(f"Construced message of {expected_chunks} chunks:")
                 os.write(tun, full_bytes)
@@ -151,6 +141,20 @@ def receive_loop(nrf_recv, tun):
                 expected_chunks = None
                 packet_id = None
 
+
+def wait_for_dhcp():
+    print("Requesting IP from DHCP server...", end="", flush=True)
+    ip = None
+    for _ in range(50):  # ~5 seconds
+        ip = get_ip_address("myG")
+        if ip:
+            break
+        print(".", end="", flush=True)
+        time.sleep(0.1)
+    if ip:
+        print(f"\nTUN interface created and ready (myG @ {ip})")
+    else:
+        print("\n❌ Failed to obtain IP address via DHCP")
 
 def main(radio_number):
     if radio_number == 0:
@@ -177,8 +181,6 @@ def main(radio_number):
                 chunk = data_bytes[start:end]
                 header = bytes([packet_id, total_chunks, seq, 0])  # last byte = flags or reserved
                 packet = header + chunk
-                if len(packet) > 32:
-                    print(f"⚠️ Packet too large to send: {len(packet)} bytes")
                 nrf_send.send(packet)
     except KeyboardInterrupt:
         print("Exiting tunnel...")
