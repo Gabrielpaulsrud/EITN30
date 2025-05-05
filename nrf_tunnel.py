@@ -8,10 +8,23 @@ from circuitpython_nrf24l01.rf24 import RF24
 import threading
 import time
 import subprocess
+import socket
 
 MAX_PAYLOAD = 32
 HEADER_SIZE = 4
 CHUNK_SIZE = MAX_PAYLOAD - HEADER_SIZE
+
+def get_ip_address(ifname):
+    """Get the IPv4 address assigned to a network interface."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', ifname[:15].encode())
+        )[20:24])
+    except OSError:
+        return None
 
 def create_tun(base_station: bool):
     TUNSETIFF = 0x400454ca
