@@ -1,0 +1,18 @@
+Apr 23 14:13:42 base20 dhcpd[14509]: Wrote 0 leases to leases file.
+Apr 23 14:13:42 base20 dhcpd[14509]: 
+Apr 23 14:13:42 base20 dhcpd[14509]: No subnet declaration for eth0 (192.168.0.160).
+Apr 23 14:13:42 base20 dhcpd[14509]: ** Ignoring requests on eth0.  If this is not what
+Apr 23 14:13:42 base20 dhcpd[14509]:    you want, please write a subnet declaration
+Apr 23 14:13:42 base20 dhcpd[14509]:    in your dhcpd.conf file for the network segment
+Apr 23 14:13:42 base20 dhcpd[14509]:    to which interface eth0 is attached. **
+Apr 23 14:13:42 base20 dhcpd[14509]: 
+Apr 23 14:13:42 base20 dhcpd[14509]: 
+Apr 23 14:13:42 base20 dhcpd[14509]: Not configured to listen on any interfaces!
+Apr 23 14:13:42 base20 dhcpd[14509]: 
+Apr 23 14:13:42 base20 dhcpd[14509]: If you think you have received this message due to a bug rather
+Apr 23 14:13:42 base20 dhcpd[14509]: than a configuration issue please read the section on submitting
+Apr 23 14:13:42 base20 dhcpd[14509]: bugs on either our web page at www.isc.org or in the README file
+Apr 23 14:13:42 base20 dhcpd[14509]: before submitting a bug.  These pages explain the proper
+Apr 23 14:13:42 base20 dhcpd[14509]: process and the information we find helpful for debugging.
+Apr 23 14:13:42 base20 dhcpd[14509]: 
+Apr 23 14:13:42 base20 dhcpd[14509]: exiting.
