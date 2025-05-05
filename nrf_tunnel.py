@@ -27,6 +27,7 @@ def get_ip_address(ifname):
         return None
 
 def create_tun(base_station: bool):
+    dnsmasq_proc = None
     TUNSETIFF = 0x400454ca
     IFF_TUN   = 0x0001
     IFF_NO_PI = 0x1000
@@ -51,7 +52,7 @@ def create_tun(base_station: bool):
         print(f"TUN interface created and ready (myG @ 11.11.11.1)")
         
         # Start dnsmasq DHCP server
-        subprocess.Popen([
+        dnsmasq_proc = subprocess.Popen([
             "dnsmasq",
             "--interface=myG",
             "--bind-interfaces",
@@ -77,7 +78,7 @@ def create_tun(base_station: bool):
         else:
             print("\nFailed to obtain IP address via DHCP")
 
-    return tun
+    return tun, dnsmasq_proc
 
 def setup_nRF24L01(radio_number):
     # Sender module setup
@@ -147,7 +148,7 @@ def main(radio_number):
     else:
         base_station = False
     nrf_send, nrf_recv = setup_nRF24L01(radio_number)
-    tun = create_tun(base_station)
+    tun, dnsmasq_proc = create_tun(base_station)
     
     recv_thread = threading.Thread(target=receive_loop, args=(nrf_recv, tun,), daemon=True)
     recv_thread.start()
@@ -170,6 +171,10 @@ def main(radio_number):
     except KeyboardInterrupt:
         print("Exiting tunnel...")
         os.close(tun)
+        if base_station:
+            dnsmasq_proc.terminate()
+            dnsmasq_proc.wait()
+            print("dnsmasq terminated")
     # try:
     #     while True:
     #         packet = os.read(tun, 2048)
