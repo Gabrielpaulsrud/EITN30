@@ -22,8 +22,8 @@ def create_tun(radio_number):
     tun = os.open('/dev/net/tun', os.O_RDWR)
 
 
-    # 2. Create tun0
-    ifr = struct.pack('16sH', b'tun0', IFF_TUN | IFF_NO_PI)
+    # 2. Create myG tun interface
+    ifr = struct.pack('16sH', b'myG', IFF_TUN | IFF_NO_PI)
     # tun_name = f"tun{adress}"
     # ifr = struct.pack('16sH', tun_name.encode(), IFF_TUN | IFF_NO_PI)
 
@@ -32,10 +32,10 @@ def create_tun(radio_number):
     # 3. Assign IP and bring it up
     # os.system(f"ip addr add 11.11.11.{adress}/24 dev {tun_name}")
     # os.system(f"ip link set dev {tun_name} up")
-    os.system(f"ip addr add 11.11.11.{adress}/24 dev tun0")
-    os.system("ip link set dev tun0 up")
+    os.system(f"ip addr add 11.11.11.{adress}/24 dev myG")
+    os.system("ip link set dev myG up")
 
-    print(f"TUN interface created and ready (tun0 @ 11.11.11.{adress})")
+    print(f"TUN interface created and ready (myG @ 11.11.11.{adress})")
     return tun
 
 def setup_nRF24L01(radio_number):
