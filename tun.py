@@ -10,15 +10,15 @@ IFF_NO_PI = 0x1000
 # 1. Open the tun device file
 tun = os.open('/dev/net/tun', os.O_RDWR)
 
-# 2. Create tun0
-ifr = struct.pack('16sH', b'tun0', IFF_TUN | IFF_NO_PI)
+# 2. Create myG tun interface
+ifr = struct.pack('16sH', b'myG', IFF_TUN | IFF_NO_PI)
 fcntl.ioctl(tun, TUNSETIFF, ifr)
 
 # 3. Assign IP and bring it up
-os.system("ip addr add 11.11.11.2/24 dev tun0")
-os.system("ip link set dev tun0 up")
+os.system("ip addr add 11.11.11.2/24 dev myG")
+os.system("ip link set dev myG up")
 
-print("TUN interface created and ready (tun0 @ 11.11.11.2)")
+print("TUN interface created and ready (myG @ 11.11.11.2)")
 print("Waiting for packets...")
 
 def is_icmp_echo_request(packet):
