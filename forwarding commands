@@ -1,0 +1,25 @@
+mobile unit
+
+# 11.11.11.2 is the IP of the base station 
+ip route add 8.8.8.8 via 11.11.11.2 dev myG
+
+base station
+
+# 1. Enable masquerading (NAT) on eth0
+sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+# 2. Allow forwarding from myG to eth0
+sudo iptables -A FORWARD -i myG -o eth0 -j ACCEPT
+
+# 3. Allow return traffic from eth0 to myG (for active connections)
+sudo iptables -A FORWARD -i eth0 -o myG -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+# 4. Enable IP forwarding (one-time)
+sudo sysctl -w net.ipv4.ip_forward=1
+
+# Optional: make it permanent
+echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+
+# Optional: Rate limit. (what is a good rate?)
+# This should put a limit on traffic from the internet back to the mobile unit
+iptables -A FORWARD -i eth0 -o myG -m state --state RELATED,ESTABLISHED -m limit --limit 75/sec --limit-burst 15 -j ACCEPT
