@@ -174,6 +174,7 @@ def main(radio_number):
         if base_station:
             dnsmasq_proc.terminate()
             dnsmasq_proc.wait()
+            subprocess.run(["pkill", "dnsmasq"])
             print("dnsmasq terminated")
     # try:
     #     while True:
