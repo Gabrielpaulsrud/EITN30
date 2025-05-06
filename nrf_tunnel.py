@@ -71,12 +71,12 @@ class TunnelNode:
         IFF_NO_PI = 0x1000 # Don't include packet info in TUN interface
 
         # 1. Open the tun device file
-        self.tun = os.open('/dev/net/tun', os.O_RDWR)
+        tun = os.open('/dev/net/tun', os.O_RDWR)
 
         # 2. Create myG tun interface
         ifr = struct.pack('16sH', b'myG', IFF_TUN | IFF_NO_PI)
 
-        fcntl.ioctl(self.tun, TUNSETIFF, ifr) # Creates the TUN interface
+        fcntl.ioctl(tun, TUNSETIFF, ifr) # Creates the TUN interface
 
         # 3. Bring the interface up
         os.system("ip link set dev myG up")
@@ -92,6 +92,8 @@ class TunnelNode:
             print("📡 Requesting IP address from base station...")
             # self.send_message(b"IP_REQUEST", flag=FLAG_IP_REQUEST)
             self.request_ip_from_base()
+
+        return tun
 
     def request_ip_from_base(self):
         max_attempts = 10
