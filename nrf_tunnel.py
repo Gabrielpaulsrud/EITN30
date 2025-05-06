@@ -31,7 +31,7 @@ class TunnelNode:
         self.ip_assigned_event = threading.Event()
         self.assigned_ip = None  # optional, for debugging or future use
 
-        self.nrf_send, self.nrf_recv = self.setup_nRF24L01(radio_number)
+        self.nrf_send, self.nrf_recv = self.setup_nRF24L01()
         self.tun = self.create_tun()
 
     def setup_nRF24L01(self):
