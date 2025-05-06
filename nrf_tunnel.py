@@ -18,19 +18,20 @@ def get_ip_address(ifname):
     """Get the IPv4 address assigned to a network interface."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
+        SIOCGIFADDR = 0x8915
         return socket.inet_ntoa(fcntl.ioctl(
             s.fileno(),
-            0x8915,  # SIOCGIFADDR
+            SIOCGIFADDR,  # SIOCGIFADDR  , Get interface address
             struct.pack('256s', ifname[:15].encode())
         )[20:24])
-    except OSError:
+    except OSError: # Mega smäller här tydligen!
         return None
 
 def create_tun(base_station: bool):
     dnsmasq_proc = None
     TUNSETIFF = 0x400454ca
     IFF_TUN   = 0x0001
-    IFF_NO_PI = 0x1000
+    IFF_NO_PI = 0x1000 # Don't include packet info in TUN interface
 
     # 1. Open the tun device file
     tun = os.open('/dev/net/tun', os.O_RDWR)
@@ -38,7 +39,7 @@ def create_tun(base_station: bool):
     # 2. Create myG tun interface
     ifr = struct.pack('16sH', b'myG', IFF_TUN | IFF_NO_PI)
 
-    fcntl.ioctl(tun, TUNSETIFF, ifr)
+    fcntl.ioctl(tun, TUNSETIFF, ifr) # Creates the TUN interface
 
     # 3. Bring the interface up
     os.system("ip link set dev myG up")
