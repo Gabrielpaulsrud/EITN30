@@ -14,6 +14,17 @@ MAX_PAYLOAD = 32
 HEADER_SIZE = 4
 CHUNK_SIZE = MAX_PAYLOAD - HEADER_SIZE
 
+send_lock = threading.Lock()
+next_packet_id = 1
+next_ip_addr = 2
+base_station = False
+
+# Message flag definitions
+FLAG_NORMAL = 0      # Regular IP packet
+FLAG_IP_REQUEST = 1  # Mobile → Base: asks for IP
+FLAG_IP_ASSIGN  = 2  # Base → Mobile: assigns IP
+FLAG_DEBUG      = 3  # Optional: debug or test messages
+
 def get_ip_address(ifname):
     """Get the IPv4 address assigned to a network interface."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -27,7 +38,7 @@ def get_ip_address(ifname):
     except OSError: # Mega smäller här tydligen!
         return None
 
-def create_tun(base_station: bool):
+def create_tun(base_station: bool, nrf_send):
     dnsmasq_proc = None
     TUNSETIFF = 0x400454ca
     IFF_TUN   = 0x0001
@@ -44,7 +55,6 @@ def create_tun(base_station: bool):
     # 3. Bring the interface up
     os.system("ip link set dev myG up")
 
-    # Todo fix this comment, also can os.system("ip link set dev myG up") be moved out of the if statement
     # 3. If base station, assign yourself a static IP and star DHCP server
     #    If mobile device, get IP from DHCP server
     if base_station:
@@ -60,10 +70,10 @@ def create_tun(base_station: bool):
             "--dhcp-range=10.0.0.10,10.0.0.100,12h"
         ])
         print("Started DHCP server with dnsmasq")
-    else:
-        # Run DHCP client to get dynamic IP from base station
-        subprocess.Popen(["dhclient", "myG"])
-        threading.Thread(target=wait_for_dhcp, daemon=True).start()
+
+    if not base_station:
+        print("📡 Requesting IP address from base station...")
+        send_message(nrf_send, b"IP_REQUEST", flag=FLAG_IP_REQUEST)
 
     return tun, dnsmasq_proc
 
@@ -98,14 +108,16 @@ def setup_nRF24L01(radio_number):
     nrf_recv.listen = True
     return nrf_send, nrf_recv
 
-def receive_loop(nrf_recv, tun):
+def receive_loop(nrf_recv, nrf_send, tun):
+    global base_station
+    global next_ip_addr
     message_parts = {}
     expected_chunks = None
     packet_id = None
     while True:
         if nrf_recv.any():
             packet = nrf_recv.read()
-            pid, total, seq, _ = packet[:4]
+            pid, total, seq, flag = packet[:4]
             print(f"Received message {pid}, {total}, {seq}")
             data = packet[4:]
 
@@ -121,9 +133,29 @@ def receive_loop(nrf_recv, tun):
             message_parts[seq] = data
             if len(message_parts) == expected_chunks:
                 full_bytes = b''.join(message_parts[i] for i in sorted(message_parts))
-
                 print(f"Construced message of {expected_chunks} chunks:")
-                os.write(tun, full_bytes)
+                if (flag == FLAG_NORMAL):
+                    os.write(tun, full_bytes)
+
+                if (flag == FLAG_IP_ASSIGN):
+                    if not base_station:
+                        ip_str = data.decode()
+                        print(f"🎯 Received IP assignment: {ip_str}")
+                        os.system(f"ip addr add {ip_str}/24 dev myG")
+                    else:
+                        print("WARNING: Got IP assignment but this is the base station, discarding")
+
+
+                if (flag == FLAG_IP_REQUEST):
+                    if base_station:
+                        ip_str = f"11.11.11.{next_ip_addr}"
+                        next_ip_addr += 1
+                        print(f"🛠 Assigning IP {ip_str} to requester")
+                        send_message(nrf_send, ip_str.encode(), flag=FLAG_IP_ASSIGN)
+                    else:
+                        print("WARNING: Got IP request but not base station")
+
+                # Reseet to prepare for next message
                 message_parts = {}
                 expected_chunks = None
                 packet_id = None
@@ -143,45 +175,40 @@ def wait_for_dhcp():
     else:
         print("\n❌ Failed to obtain IP address via DHCP")
 
+
+def send_message(nrf_send, message: bytes, flag: int):
+    global next_packet_id
+    with send_lock:
+        packet_id = next_packet_id
+        next_packet_id = (next_packet_id + 1) % 256  # Wrap at 255 to fit in 1 byte
+
+        total_chunks = (len(message) + CHUNK_SIZE - 1) // CHUNK_SIZE
+        for seq in range(total_chunks):
+            start = seq * CHUNK_SIZE
+            end = start + CHUNK_SIZE
+            chunk = message[start:end]
+            header = bytes([packet_id, total_chunks, seq, flag])
+            packet = header + chunk
+            nrf_send.send(packet)
+
 def main(radio_number):
+    global base_station
     if radio_number == 0:
         base_station = True
     else:
         base_station = False
     nrf_send, nrf_recv = setup_nRF24L01(radio_number)
-    tun, dnsmasq_proc = create_tun(base_station)
+    tun, dnsmasq_proc = create_tun(base_station, nrf_send)
     
-    recv_thread = threading.Thread(target=receive_loop, args=(nrf_recv, tun,), daemon=True)
+    recv_thread = threading.Thread(target=receive_loop, args=(nrf_recv, nrf_send, tun,), daemon=True)
     recv_thread.start()
 
     packet_id = 0
     try:
         while True:
             data_bytes = os.read(tun, 2048)
-            total_chunks = (len(data_bytes) + CHUNK_SIZE - 1) // CHUNK_SIZE
-            packet_id+=1   # Just an example, increment for each message
-
-            ##Debugging
-            print(f"🔼 TUN packet read: {len(data_bytes)} bytes")
-
-            # Optional: show first few bytes in hex for inspection
-            print(f"   🔍 First 32 bytes: {data_bytes[:32].hex()}")
-
-            # Identify UDP packets (IP protocol = 17 at byte 9)
-            if len(data_bytes) >= 28 and data_bytes[9] == 17:
-                src_port = int.from_bytes(data_bytes[20:22], 'big')
-                dst_port = int.from_bytes(data_bytes[22:24], 'big')
-                if (src_port, dst_port) in [(68, 67), (67, 68)]:
-                    print(f"📦 DHCP packet detected! UDP {src_port} → {dst_port}")
-
             print(f"\nReceived on TUN, writing to nrf")
-            for seq in range(total_chunks):
-                start = seq * CHUNK_SIZE
-                end = start + CHUNK_SIZE
-                chunk = data_bytes[start:end]
-                header = bytes([packet_id, total_chunks, seq, 0])  # last byte = flags or reserved
-                packet = header + chunk
-                nrf_send.send(packet)
+            send_message(nrf_send, data_bytes, FLAG_NORMAL)
     except KeyboardInterrupt:
         print("Exiting tunnel...")
         os.close(tun)
