@@ -100,7 +100,7 @@ class TunnelNode:
         for attempt in range(max_attempts):
             print(f"📡 Sending IP request... attempt {attempt+1}")
             self.send_message(b"IP_REQUEST", flag=FLAG_IP_REQUEST)
-            if self.ip_assigned_event.wait(timeout=1.0):  # wait 1 second
+            if self.ip_assigned_event.wait(timeout=10.0):  # wait 1 second
                 print(f"✅ IP successfully assigned: {self.assigned_ip}")
                 return
             print("⏳ No response, retrying...")
