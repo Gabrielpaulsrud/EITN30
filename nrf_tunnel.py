@@ -91,7 +91,8 @@ class TunnelNode:
         if not self.base_station:
             print("📡 Requesting IP address from base station...")
             # self.send_message(b"IP_REQUEST", flag=FLAG_IP_REQUEST)
-            self.request_ip_from_base()
+            # self.request_ip_from_base()
+            threading.Thread(target=self.request_ip_from_base, daemon=True).start()
 
         return tun
 
@@ -100,7 +101,7 @@ class TunnelNode:
         for attempt in range(max_attempts):
             print(f"📡 Sending IP request... attempt {attempt+1}")
             self.send_message(b"IP_REQUEST", flag=FLAG_IP_REQUEST)
-            if self.ip_assigned_event.wait(timeout=10.0):  # wait 1 second
+            if self.ip_assigned_event.wait(timeout=1.0):  # wait 1 second
                 print(f"✅ IP successfully assigned: {self.assigned_ip}")
                 return
             print("⏳ No response, retrying...")
