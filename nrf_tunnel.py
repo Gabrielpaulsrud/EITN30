@@ -99,17 +99,17 @@ class TunnelNode:
     def request_ip_from_base(self):
         max_attempts = 10
         for attempt in range(max_attempts):
-            print(f"📡 Sending IP request... attempt {attempt+1}")
+            print(f" Sending IP request... attempt {attempt+1}")
             self.send_message(b"IP_REQUEST", flag=FLAG_IP_REQUEST)
             if self.ip_assigned_event.wait(timeout=1.0):  # wait 1 second
-                print(f"✅ IP successfully assigned: {self.assigned_ip}")
+                print(f" IP successfully assigned: {self.assigned_ip}")
                 return
-            print("⏳ No response, retrying...")
+            print(" No response, retrying...")
         
-        print("❌ Failed to obtain IP after multiple attempts.")
+        print(" Failed to obtain IP after multiple attempts.")
 
     def setup_namespace(self):
-        print("🧠 Setting up isolated namespace for routing")
+        print(" Setting up isolated namespace for routing")
         ns_name = "ns-client"
 
         os.system(f"ip netns add {ns_name}")
@@ -119,19 +119,30 @@ class TunnelNode:
         os.system(f"ip netns exec {ns_name} ip addr add {self.assigned_ip}/24 dev myG")
         os.system(f"ip netns exec {ns_name} ip route add default via 11.11.11.1 dev myG")
 
-        print("✅ Namespace ready. You can now run:")
-        print(f"sudo ip netns exec {ns_name} python3 your_streaming_script.py")
+        print(" Namespace ready. You can now run:")
+        #print(f"sudo ip netns exec ns-client python radio_pi.py")
 
     def receive_loop(self):
         message_parts = {}
         expected_chunks = None
         packet_id = None
+        last_receive_time = time.time()
+
+
         while True:
             if self.nrf_recv.any():
                 packet = self.nrf_recv.read()
                 pid, total, seq, flag = packet[:4]
                 print(f"Received message {pid}, {total}, {seq}")
                 data = packet[4:]
+                now = time.time()
+
+
+                if packet_id is not None and now - last_receive_time > 1.0:
+                    print(f"Timeout på paket {packet_id}. Rensar cache.")
+                    message_parts = {}
+                    expected_chunks = None
+                    packet_id = None
 
                 # First packet: set expectations
                 if packet_id is None:
@@ -140,10 +151,13 @@ class TunnelNode:
 
                 # Ignore other packet_ids
                 if pid != packet_id:
+                    print("IGNORED MESSAGE")
                     continue
 
+                last_receive_time = now
                 message_parts[seq] = data
                 if len(message_parts) == expected_chunks:
+
                     full_bytes = b''.join(message_parts[i] for i in sorted(message_parts))
                     print(f"Construced message of {expected_chunks} chunks:")
                     if (flag == FLAG_NORMAL):
@@ -152,7 +166,7 @@ class TunnelNode:
                     if (flag == FLAG_IP_ASSIGN):
                         if not self.base_station:
                             ip_str = data.decode()
-                            print(f"🎯 Received IP assignment: {ip_str}")
+                            print(f" Received IP assignment: {ip_str}")
                             os.system(f"ip addr add {ip_str}/24 dev myG")
                             self.assigned_ip = ip_str
                             self.ip_assigned_event.set()
