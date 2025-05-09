@@ -108,6 +108,20 @@ class TunnelNode:
         
         print("❌ Failed to obtain IP after multiple attempts.")
 
+    def setup_namespace(self):
+        print("🧠 Setting up isolated namespace for routing")
+        ns_name = "ns-client"
+
+        os.system(f"ip netns add {ns_name}")
+        os.system(f"ip link set myG netns {ns_name}")
+        os.system(f"ip netns exec {ns_name} ip link set lo up")
+        os.system(f"ip netns exec {ns_name} ip link set myG up")
+        os.system(f"ip netns exec {ns_name} ip addr add {self.assigned_ip}/24 dev myG")
+        os.system(f"ip netns exec {ns_name} ip route add default via 11.11.11.1 dev myG")
+
+        print("✅ Namespace ready. You can now run:")
+        print(f"sudo ip netns exec {ns_name} python3 your_streaming_script.py")
+
     def receive_loop(self):
         message_parts = {}
         expected_chunks = None
@@ -142,6 +156,7 @@ class TunnelNode:
                             os.system(f"ip addr add {ip_str}/24 dev myG")
                             self.assigned_ip = ip_str
                             self.ip_assigned_event.set()
+                            self.setup_namespace()
                         else:
                             print("WARNING: Got IP assignment but this is the base station, discarding")
 
@@ -183,6 +198,8 @@ class TunnelNode:
                 self.send_message(data_bytes, FLAG_NORMAL)
         except KeyboardInterrupt:
             print("Exiting tunnel...")
+            if not self.base_station:
+                os.system("sudo ip netns del ns-client")
             os.close(self.tun)
 
 if __name__ == "__main__":

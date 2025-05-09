@@ -1,7 +1,7 @@
 mobile unit
 
-# 11.11.11.2 is the IP of the base station 
-ip route add 8.8.8.8 via 11.11.11.2 dev myG
+# 11.11.11.1 is the IP of the base station 
+ip route add 8.8.8.8 via 11.11.11.1 dev myG
 
 base station
 
