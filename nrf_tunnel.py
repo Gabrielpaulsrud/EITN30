@@ -153,7 +153,7 @@ class TunnelNode:
                 print(f"Received message {pid}, {total}, {seq}")
 
                 if not pid in messages:
-                    messages[pid] = PartialMessage(total_chunks=total)
+                    messages[pid] = PartialMessage(total)
                 
                 partialMessage = messages[pid]
                 partialMessage.add_part(seq, data)
