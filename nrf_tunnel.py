@@ -21,6 +21,22 @@ FLAG_IP_REQUEST = 1  # Mobile → Base: asks for IP
 FLAG_IP_ASSIGN  = 2  # Base → Mobile: assigns IP
 FLAG_DEBUG      = 3  # Optional: debug or test messages
 
+class PartialMessage:
+    def __init__(self, expected_chunks):
+        self.parts = {}  # seq -> data
+        self.expected_chunks = expected_chunks
+        self.last_update = time.time()
+
+    def add_part(self, seq, data):
+        self.parts[seq] = data
+        self.last_update = time.time()
+
+    def is_complete(self):
+        return len(self.parts) == self.expected_chunks
+
+    def assemble(self):
+        return b''.join(self.parts[i] for i in sorted(self.parts))
+
 class TunnelNode:
     def __init__(self, radio_number: int):
         self.radio_number = radio_number
@@ -123,43 +139,30 @@ class TunnelNode:
         #print(f"sudo ip netns exec ns-client python radio_pi.py")
 
     def receive_loop(self):
-        message_parts = {}
-        expected_chunks = None
-        packet_id = None
-        last_receive_time = time.time()
-
+        messages: dict[int, PartialMessage] = {}
+        MESSAGE_TIMEOUT = 2.0  # seconds
 
         while True:
             if self.nrf_recv.any():
-                packet = self.nrf_recv.read()
-                pid, total, seq, flag = packet[:4]
-                print(f"Received message {pid}, {total}, {seq}")
-                data = packet[4:]
+
                 now = time.time()
 
+                packet = self.nrf_recv.read()
+                pid, total, seq, flag = packet[:4]
+                data = packet[4:]
+                print(f"Received message {pid}, {total}, {seq}")
 
-                if packet_id is not None and now - last_receive_time > 1.0:
-                    print(f"Timeout på paket {packet_id}. Rensar cache.")
-                    message_parts = {}
-                    expected_chunks = None
-                    packet_id = None
+                if not pid in messages:
+                    messages[pid] = PartialMessage(total_chunks=total)
+                
+                partialMessage = messages[pid]
+                partialMessage.add_part(seq, data)
+                
+                if partialMessage.is_complete():
 
-                # First packet: set expectations
-                if packet_id is None:
-                    packet_id = pid
-                    expected_chunks = total
-
-                # Ignore other packet_ids
-                if pid != packet_id:
-                    print("IGNORED MESSAGE")
-                    continue
-
-                last_receive_time = now
-                message_parts[seq] = data
-                if len(message_parts) == expected_chunks:
-
-                    full_bytes = b''.join(message_parts[i] for i in sorted(message_parts))
-                    print(f"Construced message of {expected_chunks} chunks:")
+                    # full_bytes = b''.join(message_parts[i] for i in sorted(message_parts))
+                    full_bytes = partialMessage.assemble()
+                    print(f"Construced message of {partialMessage.expected_chunks} chunks:")
                     if (flag == FLAG_NORMAL):
                         os.write(self.tun, full_bytes)
 
@@ -184,10 +187,14 @@ class TunnelNode:
                         else:
                             print("WARNING: Got IP request but not base station")
 
-                    # Reseet to prepare for next message
-                    message_parts = {}
-                    expected_chunks = None
-                    packet_id = None
+                    # Remove complete message from dict
+                    del messages[pid]
+
+                # Clean up old messages
+                expired_pids = [pid for pid, msg in messages.items() if now - msg.last_update > MESSAGE_TIMEOUT]
+                for pid in expired_pids:
+                    print(f"🧹 Removing expired message with pid {pid}")
+                    del messages[pid]
 
     def send_message(self, message: bytes, flag: int):
         with self.send_lock:
