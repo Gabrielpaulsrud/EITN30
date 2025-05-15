@@ -3,7 +3,7 @@ import csv
 
 # Settings
 server_ip = "11.11.11.1"
-bitrates = range(10, 160, 10)  # from 10 to 150 step 10
+bitrates = range(10, 20, 10)  # from 10 to 150 step 10
 
 # Lists to store the results
 sender_bitrates = []
@@ -18,11 +18,26 @@ for b in bitrates:
     print(f"Running iperf3 test with bitrate {bitrate_str}...")
 
     # Run iperf3 and capture output
+    # result = subprocess.run(
+    #     ["iperf3", "-c", server_ip, "-u", "-b", bitrate_str, "-l", "32", "-t", "10"],
+    #     capture_output=True,
+    #     text=True
+    # )
+
     result = subprocess.run(
         ["iperf3", "-c", server_ip, "-u", "-b", bitrate_str, "-l", "32", "-t", "10"],
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,  # Combine stderr into stdout
         text=True
     )
+
+    output = result.stdout
+
+    # Check if iperf3 ran successfully
+    if result.returncode != 0:
+        print(f"Warning: iperf3 test failed for bitrate {bitrate_str}")
+        print(output)  # Show full output so you can debug
+        continue  # Skip to next test safely
 
     output = result.stdout
 
