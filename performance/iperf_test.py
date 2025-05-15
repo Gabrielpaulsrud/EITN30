@@ -24,20 +24,16 @@ for b in bitrates:
     #     text=True
     # )
 
+    namespace = "ns-client"  # your namespace name
+
     result = subprocess.run(
-        ["iperf3", "-c", server_ip, "-u", "-b", bitrate_str, "-l", "32", "-t", "10"],
+        ["ip", "netns", "exec", namespace,
+        "iperf3", "-c", server_ip, "-u", "-b", bitrate_str, "-l", "32", "-t", "10"],
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,  # Combine stderr into stdout
-        text=True
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=20
     )
-
-    output = result.stdout
-
-    # Check if iperf3 ran successfully
-    if result.returncode != 0:
-        print(f"Warning: iperf3 test failed for bitrate {bitrate_str}")
-        print(output)  # Show full output so you can debug
-        continue  # Skip to next test safely
 
     output = result.stdout
 
