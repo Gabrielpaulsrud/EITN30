@@ -21,6 +21,11 @@ FLAG_IP_REQUEST = 1  # Mobile → Base: asks for IP
 FLAG_IP_ASSIGN  = 2  # Base → Mobile: assigns IP
 FLAG_DEBUG      = 3  # Optional: debug or test messages
 
+PRINT = 1
+
+def my_print(msg):
+    if PRINT:
+        print(msg)
 class PartialMessage:
     def __init__(self, expected_chunks):
         self.parts = {}  # seq -> data
@@ -104,12 +109,10 @@ class TunnelNode:
         if self.base_station:
             # Assign static IP to base station side
             os.system(f"ip addr add 11.11.11.1/24 dev myG")
-            #print(f"TUN interface created and ready (myG @ 11.11.11.1)")
+            my_print(f"TUN interface created and ready (myG @ 11.11.11.1)")
             
         if not self.base_station:
-            #print("📡 Requesting IP address from base station...")
-            # self.send_message(b"IP_REQUEST", flag=FLAG_IP_REQUEST)
-            # self.request_ip_from_base()
+            my_print("Requesting IP address from base station...")
             threading.Thread(target=self.request_ip_from_base, daemon=True).start()
 
         return tun
@@ -117,17 +120,17 @@ class TunnelNode:
     def request_ip_from_base(self):
         max_attempts = 10
         for attempt in range(max_attempts):
-            #print(f" Sending IP request... attempt {attempt+1}")
+            my_print(f" Sending IP request... attempt {attempt+1}")
             self.send_message(b"IP_REQUEST", flag=FLAG_IP_REQUEST)
             if self.ip_assigned_event.wait(timeout=1.0):  # wait 1 second
-                #print(f" IP successfully assigned: {self.assigned_ip}")
+                my_print(f" IP successfully assigned: {self.assigned_ip}")
                 return
-            #print(" No response, retrying...")
+            my_print(" No response, retrying...")
         
-        #print(" Failed to obtain IP after multiple attempts.")
+        my_print(" Failed to obtain IP after multiple attempts.")
 
     def setup_namespace(self):
-        #print(" Setting up isolated namespace for routing")
+        my_print(" Setting up isolated namespace for routing")
         ns_name = "ns-client"
 
         os.system(f"ip netns add {ns_name}")
@@ -139,13 +142,13 @@ class TunnelNode:
 
         #os.system(f"ip route add default via 11.11.11.1 dev myG")
         
-        #print(" Namespace ready.")
+        my_print(" Namespace ready.")
         # ALLT SOM BEHÖVDE GÖRAS : ip route add default via 11.11.11.1 dev myG
 
     def setup_default(self):
         os.system(f"ip route add default via 11.11.11.1 dev myG")
 
-        #print("default rule added")
+        my_print("default rule added")
 
     def update_routing_table(self):
     # Run the dig commands to fetch IP addresses
@@ -158,7 +161,7 @@ class TunnelNode:
 
         # Combine results and add to routing table
         all_ips = result_api_sr + result_sverigesradio + result_edge + result_edge2
-        #print(all_ips)
+        my_print(all_ips)
 
         for ip in all_ips:
             # Filter out non-IP entries (like domain names)
@@ -166,7 +169,7 @@ class TunnelNode:
                 continue
             
             # Add the IP addresses to the routing table
-            #print(f"Adding IP {ip} to routing table")
+            my_print(f"Adding IP {ip} to routing table")
             os.system(f"ip route add {ip}/32 via 11.11.11.1 dev myG")
         
     def is_valid_ip(self, ip):
@@ -191,7 +194,7 @@ class TunnelNode:
                 packet = self.nrf_recv.read()
                 pid, total, seq, flag = packet[:4]
                 data = packet[4:]
-                #print(f"Received message {pid}, {total}, {seq}")
+                my_print(f"Received message {pid}, {total}, {seq}")
 
                 if not pid in messages:
                     messages[pid] = PartialMessage(total)
@@ -203,32 +206,32 @@ class TunnelNode:
 
                     # full_bytes = b''.join(message_parts[i] for i in sorted(message_parts))
                     full_bytes = partialMessage.assemble()
-                    #print(f"Constructed message of {partialMessage.expected_chunks} chunks:")
+                    my_print(f"Constructed message of {partialMessage.expected_chunks} chunks:")
                     if (flag == FLAG_NORMAL):
                         os.write(self.tun, full_bytes)
 
                     if (flag == FLAG_IP_ASSIGN):
                         if not self.base_station:
                             ip_str = data.decode()
-                            #print(f" Received IP assignment: {ip_str}")
+                            my_print(f" Received IP assignment: {ip_str}")
                             os.system(f"ip addr add {ip_str}/24 dev myG")
                             self.assigned_ip = ip_str
                             self.ip_assigned_event.set()
-                            self.setup_default()
-                            #self.setup_namespace()
+                            #self.setup_default()
+                            self.setup_namespace()
                             #self.update_routing_table() 
-                        #else:
-                            #print("WARNING: Got IP assignment but this is the base station, discarding")
+                        else:
+                            my_print("WARNING: Got IP assignment but this is the base station, discarding")
 
 
                     if (flag == FLAG_IP_REQUEST):
                         if self.base_station:
                             ip_str = f"11.11.11.{self.next_ip_addr}"
                             self.next_ip_addr += 1
-                            #print(f"🛠 Assigning IP {ip_str} to requester")
+                            my_print(f"Assigning IP {ip_str} to requester")
                             self.send_message(ip_str.encode(), flag=FLAG_IP_ASSIGN)
-                        #else:
-                            #print("WARNING: Got IP request but not base station")
+                        else:
+                            my_print("WARNING: Got IP request but not base station")
 
                     # Remove complete message from dict
                     del messages[pid]
@@ -236,7 +239,7 @@ class TunnelNode:
                 # Clean up old messages
                 expired_pids = [pid for pid, msg in messages.items() if now - msg.last_update > MESSAGE_TIMEOUT]
                 for pid in expired_pids:
-                    #print(f"🧹 Removing expired message with pid {pid}")
+                    my_print(f"Removing expired message with pid {pid}")
                     del messages[pid]
 
     def send_message(self, message: bytes, flag: int):
@@ -258,10 +261,10 @@ class TunnelNode:
         try:
             while True:
                 data_bytes = os.read(self.tun, 2048)
-                #print(f"\nReceived on TUN, writing to nrf")
+                my_print(f"\nReceived on TUN, writing to nrf")
                 self.send_message(data_bytes, FLAG_NORMAL)
         except KeyboardInterrupt:
-            #print("Exiting tunnel...")
+            my_print("Exiting tunnel...")
             if not self.base_station:
                 os.system("sudo ip netns del ns-client")
                 # os.system("pkill -f 'sleep 10000'")  # Stoppa dummy sleep-process
