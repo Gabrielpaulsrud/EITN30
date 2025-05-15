@@ -1,6 +1,5 @@
 import subprocess
 import csv
-import matplotlib.pyplot as plt
 
 # Settings
 server_ip = "11.11.11.1"
@@ -63,21 +62,3 @@ with open('iperf_results.csv', 'w', newline='') as csvfile:
         writer.writerow([s, r, j])
 
 print("Results saved to iperf_results.csv")
-
-# Plot: Sender vs Receiver bitrate
-plt.figure(figsize=(8,6))
-plt.scatter(sender_bitrates, receiver_bitrates, color='b', s=80)
-plt.xlabel('Sender Bitrate (Kbps)')
-plt.ylabel('Receiver Bitrate (Kbps)')
-plt.title('Sender vs Receiver Bitrate')
-plt.grid(True)
-plt.show()
-
-# Plot: Sender vs Receiver jitter
-plt.figure(figsize=(8,6))
-plt.scatter(sender_bitrates, receiver_jitters, color='r', s=80)
-plt.xlabel('Sender Bitrate (Kbps)')
-plt.ylabel('Receiver Jitter (ms)')
-plt.title('Sender Bitrate vs Receiver Jitter')
-plt.grid(True)
-plt.show()
