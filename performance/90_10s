@@ -1,0 +1,19 @@
+Connecting to host 11.11.11.1, port 5201
+[  5] local 11.11.11.2 port 60948 connected to 11.11.11.1 port 5201
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  5]   0.00-1.00   sec  11.0 KBytes  90.1 Kbits/sec  352  
+[  5]   1.00-2.00   sec  11.0 KBytes  89.9 Kbits/sec  351  
+[  5]   2.00-3.00   sec  11.0 KBytes  90.1 Kbits/sec  352  
+[  5]   3.00-4.00   sec  11.0 KBytes  89.9 Kbits/sec  351  
+[  5]   4.00-5.00   sec  11.0 KBytes  90.1 Kbits/sec  352  
+[  5]   5.00-6.00   sec  11.0 KBytes  90.1 Kbits/sec  352  
+[  5]   6.00-7.00   sec  11.0 KBytes  89.9 Kbits/sec  351  
+[  5]   7.00-8.00   sec  11.0 KBytes  90.1 Kbits/sec  352  
+[  5]   8.00-9.00   sec  11.0 KBytes  89.9 Kbits/sec  351  
+[  5]   9.00-10.00  sec  11.0 KBytes  90.1 Kbits/sec  352  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-10.00  sec   110 KBytes  90.0 Kbits/sec  0.000 ms  0/3516 (0%)  sender
+[  5]   0.00-11.71  sec   109 KBytes  76.1 Kbits/sec  0.417 ms  34/3516 (0.97%)  receiver
+
+iperf Done.
