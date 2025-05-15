@@ -21,17 +21,17 @@ do
     RECEIVER_LINE=$(echo "$OUTPUT" | grep receiver | tail -n 1)
 
     # Parse sender bitrate (6th column)
-    SENDER_BITRATE=$(echo $SENDER_LINE | awk '{print $6}')
+    SENDER_BITRATE=$(echo $SENDER_LINE | awk '{print $7}')
 
     # Parse receiver bitrate and jitter (6th and 7th column)
-    RECEIVER_BITRATE=$(echo $RECEIVER_LINE | awk '{print $6}')
-    RECEIVER_JITTER=$(echo $RECEIVER_LINE | awk '{print $7}')
+    RECEIVER_BITRATE=$(echo $RECEIVER_LINE | awk '{print $7}')
+    RECEIVER_JITTER=$(echo $RECEIVER_LINE | awk '{print $9}')
 
     # Save to CSV
     echo "$SENDER_BITRATE,$RECEIVER_BITRATE,$RECEIVER_JITTER" >> "$CSV_FILE"
 
     # Sleep between tests
-    sleep 3
+    sleep 5
 done
 
 echo "All tests complete. Results saved to $CSV_FILE."

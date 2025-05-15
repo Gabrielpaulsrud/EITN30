@@ -21,7 +21,7 @@ FLAG_IP_REQUEST = 1  # Mobile → Base: asks for IP
 FLAG_IP_ASSIGN  = 2  # Base → Mobile: assigns IP
 FLAG_DEBUG      = 3  # Optional: debug or test messages
 
-PRINT = 1
+PRINT = 0
 
 def my_print(msg):
     if PRINT:
