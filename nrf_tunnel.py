@@ -50,12 +50,9 @@ class TunnelNode:
         self.next_ip_addr = 2
         self.send_lock = threading.Lock()
         self.ip_assigned_event = threading.Event()
-        self.assigned_ip = None  # optional, for debugging or future use
-
+        self.assigned_ip = None
         self.nrf_send, self.nrf_recv = self.setup_nRF24L01()
         self.tun = self.create_tun()
-        
-        
 
     def setup_nRF24L01(self):
         # Sender module setup
@@ -71,7 +68,6 @@ class TunnelNode:
         CE_RECV = DigitalInOut(board.D27)
         nrf_recv = RF24(SPI_BUS2, CSN_RECV, CE_RECV)
         nrf_recv.pa_level = -12
-
 
         addresses = [b"1Node", b"2Node"]
         # Radio number is either 0 or 1, used to initalize the different radios with different addresses
@@ -138,50 +134,13 @@ class TunnelNode:
         os.system(f"ip netns exec {ns_name} ip link set lo up")
         os.system(f"ip netns exec {ns_name} ip link set myG up")
         os.system(f"ip netns exec {ns_name} ip addr add {self.assigned_ip}/24 dev myG")
-        os.system(f"ip netns exec {ns_name} ip route add default via 11.11.11.1 dev myG")
-
-        #os.system(f"ip route add default via 11.11.11.1 dev myG")
-        
+        os.system(f"ip netns exec {ns_name} ip route add default via 11.11.11.1 dev myG")        
         my_print(" Namespace ready.")
-        # ALLT SOM BEHÖVDE GÖRAS : ip route add default via 11.11.11.1 dev myG
 
     def setup_default(self):
         os.system(f"ip route add default via 11.11.11.1 dev myG")
-
         my_print("default rule added")
-
-    def update_routing_table(self):
-    # Run the dig commands to fetch IP addresses
-        result_api_sr = subprocess.check_output(["dig", "+short", "api.sr.se"]).decode().strip().splitlines()
-        result_sverigesradio = subprocess.check_output(["dig", "+short", "sverigesradio.se"]).decode().strip().splitlines()
-        result_edge =  subprocess.check_output(["dig", "+short", " edge1.sr.se"]).decode().strip().splitlines()
-        result_edge2 =  subprocess.check_output(["dig", "+short", " edge.sr.se"]).decode().strip().splitlines()
-       
         
-
-        # Combine results and add to routing table
-        all_ips = result_api_sr + result_sverigesradio + result_edge + result_edge2
-        my_print(all_ips)
-
-        for ip in all_ips:
-            # Filter out non-IP entries (like domain names)
-            if not self.is_valid_ip(ip):
-                continue
-            
-            # Add the IP addresses to the routing table
-            my_print(f"Adding IP {ip} to routing table")
-            os.system(f"ip route add {ip}/32 via 11.11.11.1 dev myG")
-        
-    def is_valid_ip(self, ip):
-        # Check if the string is a valid IP address
-        try:
-            socket.inet_aton(ip)
-            return True
-        except socket.error:
-            return False
-
-
-
     def receive_loop(self):
         messages: dict[int, PartialMessage] = {}
         MESSAGE_TIMEOUT = 2.0  # seconds
@@ -219,7 +178,6 @@ class TunnelNode:
                             self.ip_assigned_event.set()
                             #self.setup_default()
                             self.setup_namespace()
-                            #self.update_routing_table() 
                         else:
                             my_print("WARNING: Got IP assignment but this is the base station, discarding")
 
