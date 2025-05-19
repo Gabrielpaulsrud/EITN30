@@ -258,18 +258,18 @@ class TunnelNode:
     
     def run(self):
         threading.Thread(target=self.receive_loop, daemon=True).start()
+        counter = 0
         try:
             while True:
                 data_bytes = os.read(self.tun, 2048)
                 my_print(f"\nReceived on TUN, writing to nrf")
+                counter+=1
                 self.send_message(data_bytes, FLAG_NORMAL)
+                my_print(counter) # La till denna för att visa tydligt att paket skickas vid radio_streamen.
         except KeyboardInterrupt:
             my_print("Exiting tunnel...")
             if not self.base_station:
                 os.system("sudo ip netns del ns-client")
-                # os.system("pkill -f 'sleep 10000'")  # Stoppa dummy sleep-process
-                # if os.path.exists("/tmp/ns-client-pid"):
-                #     os.remove("/tmp/ns-client-pid")
             os.close(self.tun)
 
 if __name__ == "__main__":
