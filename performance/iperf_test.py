@@ -1,10 +1,9 @@
 import subprocess
 import csv
-import matplotlib.pyplot as plt
 
 # Settings
 server_ip = "11.11.11.1"
-bitrates = range(10, 160, 10)  # from 10 to 150 step 10
+bitrates = range(10, 20, 10)  # from 10 to 150 step 10
 
 # Lists to store the results
 sender_bitrates = []
@@ -19,10 +18,21 @@ for b in bitrates:
     print(f"Running iperf3 test with bitrate {bitrate_str}...")
 
     # Run iperf3 and capture output
+    # result = subprocess.run(
+    #     ["iperf3", "-c", server_ip, "-u", "-b", bitrate_str, "-l", "32", "-t", "10"],
+    #     capture_output=True,
+    #     text=True
+    # )
+
+    namespace = "ns-client"  # your namespace name
+
     result = subprocess.run(
-        ["iperf3", "-c", server_ip, "-u", "-b", bitrate_str, "-l", "32", "-t", "10"],
-        capture_output=True,
-        text=True
+        ["ip", "netns", "exec", namespace,
+        "iperf3", "-c", server_ip, "-u", "-b", bitrate_str, "-l", "32", "-t", "10"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=20
     )
 
     output = result.stdout
@@ -63,21 +73,3 @@ with open('iperf_results.csv', 'w', newline='') as csvfile:
         writer.writerow([s, r, j])
 
 print("Results saved to iperf_results.csv")
-
-# Plot: Sender vs Receiver bitrate
-plt.figure(figsize=(8,6))
-plt.scatter(sender_bitrates, receiver_bitrates, color='b', s=80)
-plt.xlabel('Sender Bitrate (Kbps)')
-plt.ylabel('Receiver Bitrate (Kbps)')
-plt.title('Sender vs Receiver Bitrate')
-plt.grid(True)
-plt.show()
-
-# Plot: Sender vs Receiver jitter
-plt.figure(figsize=(8,6))
-plt.scatter(sender_bitrates, receiver_jitters, color='r', s=80)
-plt.xlabel('Sender Bitrate (Kbps)')
-plt.ylabel('Receiver Jitter (ms)')
-plt.title('Sender Bitrate vs Receiver Jitter')
-plt.grid(True)
-plt.show()
