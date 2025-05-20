@@ -11,7 +11,7 @@ def stream_to_udp(stream_url, target_ip, port, bitrate="190k"):
     return subprocess.Popen([
         "ffmpeg", "-re", "-i", stream_url,
         "-acodec", "libmp3lame", "-ab", bitrate,
-        ,"-pkt_size" , 512   # Libmp3lame är mest använda mp3-kodaren.
+        # ,"-pkt_size" , 512   # Libmp3lame är mest använda mp3-kodaren.
         "-f", "mp3", f"udp://{target_ip}:{port}"
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
