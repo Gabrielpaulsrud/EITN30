@@ -6,11 +6,12 @@ LISTEN_IP = "11.11.11.1"
 LISTEN_PORT = 5002
 TARGET_PORT = 12346
 
-def stream_to_udp(stream_url, target_ip, port, bitrate="67k"):
+def stream_to_udp(stream_url, target_ip, port, bitrate="190k"):
     print(f"Startar ffmpeg: {stream_url} på länk : udp://{target_ip}:{port}")
     return subprocess.Popen([
         "ffmpeg", "-re", "-i", stream_url,
         "-acodec", "libmp3lame", "-ab", bitrate,
+        ,"-pkt_size" , 512   # Libmp3lame är mest använda mp3-kodaren.
         "-f", "mp3", f"udp://{target_ip}:{port}"
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -23,7 +24,7 @@ def main():
             data, addr = s.recvfrom(1024) # Returnerar en tuple med datan och vilken address som skickade informationen.
             stream_url = data.decode().strip()
             client_ip = addr[0]
-            print(f"Fick kanal-URL från {client_ip}: {stream_url}")
+            print(f"Fick kanal-URL från {client_ip}")
             ffmpeg_proc = stream_to_udp(stream_url, client_ip, TARGET_PORT)
             try:
                 ffmpeg_proc.wait()

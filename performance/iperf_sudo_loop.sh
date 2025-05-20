@@ -1,18 +1,18 @@
 #!/bin/bash
 
 SERVER_IP="11.11.11.1"
-CSV_FILE="iperf_results.csv"
+CSV_FILE="iperf_results_2.csv"
 
 # Write CSV header
 echo "Sender_Bitrate_Kbps,Receiver_Bitrate_Kbps,Receiver_Jitter_ms" > "$CSV_FILE"
 
-for (( b=10; b<=150; b+=10 ))
+for (( b=10; b<=300; b+=10 ))
 do
     bitrate="${b}K"
     echo "Running iperf3 test with bitrate $bitrate..."
     
     # Run iperf3 in namespace with sudo and capture output
-    OUTPUT=$(sudo ip netns exec ns-client iperf3 -c $SERVER_IP -u -b $bitrate -l 32 -t 10)
+    OUTPUT=$(sudo ip netns exec ns-client iperf3 -c $SERVER_IP -u -b $bitrate -l 1200 -t 10)
 
     # Extract sender line
     SENDER_LINE=$(echo "$OUTPUT" | grep sender | tail -n 1)
